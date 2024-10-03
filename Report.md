@@ -26,13 +26,35 @@ for line in raw:
 data = [line.replace('\n', ' ').replace('\xa0', ' ') for line in data]
 text = ' '.join(data)
 ```
+Пример:
+
+```python
+text[:100]
+```
+
+```plaintext
+завет ЗАВЕТ Моисея  В начале сотворил Бог небо и землю. Земля же была безвидна и пуста, и тьма над б
+```
 
 В коде строится алфавит всех уникальных символов, присутствующих в тексте, и каждому символу присваивается индекс. Токенизация происходит на уровне символов, что позволяет модели работать с текстом по букве.
 
 ```python
+def get_features_target(seq):
+    features = seq[:-1]
+    target = seq[1:]
+    return features, target
+
+BATCH_SIZE = 128
+
 alphabet = np.array(sorted(set(text)))
-word_index = {char: i for i, char in enumerate(alphabet)}
-index_word = {i: char for i, char in enumerate(alphabet)}
+sym_to_idx = {}
+idx_to_sym = {}
+
+for idx, sym in enumerate(alphabet):
+    sym_to_idx[sym] = idx
+    idx_to_sym[idx] = sym
+    
+text_idx = np.array([sym_to_idx[char] for char in text])
 ```
 
 # Создание обучающих данных
@@ -40,9 +62,8 @@ index_word = {i: char for i, char in enumerate(alphabet)}
 Текст превращается в последовательность индексов символов. Эти последовательности подаются в нейронную сеть с помощью пакетов (батчей).
 
 ```python
-sequences = Dataset.from_tensor_slices(np.array([word_index[char] for char in text])).batch(BATCH_SIZE, drop_remainder=True)
+sequences = Dataset.from_tensor_slices(text_idx).batch(BATCH_SIZE, drop_remainder=True)
 dataset = sequences.map(get_features_target)
-
 data = dataset.batch(BATCH_SIZE, drop_remainder=True).repeat()
 data = data.prefetch(AUTOTUNE)
 ```
@@ -68,7 +89,7 @@ model = keras.Sequential([
 
 ```python
 model.compile(optimizer='adam', loss=losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
-model.fit(data, epochs=40, verbose=1, steps_per_epoch=len(sequences) // BATCH_SIZE)
+model.fit(data, epochs=40, verbose=1, steps_per_epoch= len(sequences) // BATCH_SIZE)
 ```
 
 # Генерация текста
@@ -76,23 +97,23 @@ model.fit(data, epochs=40, verbose=1, steps_per_epoch=len(sequences) // BATCH_SI
 Генерация текста происходит с помощью функции `predict_next`. Модель принимает начальную последовательность символов и предсказывает следующий символ, повторяя процесс до получения полной последовательности.
 
 ```python
-def predict_next(sample, model, tokenizer, vocabulary, n_next, temperature, batch_size):
-    sample_vector = [tokenizer[char] for char in sample]
-    predicted = sample_vector
-    sample_tensor = tf.expand_dims(sample_vector, 0)
+def predict_next(sample, model, tokenizer, vocabulary, n_next, rnd_power, batch_size):
+    sample_token = [tokenizer[char] for char in sample]
+    predicted = sample_token
+
+    sample_tensor = tf.expand_dims(sample_token, 0)
     sample_tensor = tf.repeat(sample_tensor, batch_size, axis=0)
     
-    for i in range(n_next):
-        pred = model(sample_tensor)
-        pred = pred[0].numpy() / temperature
-        pred = tf.random.categorical(pred, num_samples=1)[-1, 0].numpy()
-        predicted.append(pred)
+    for _ in range(n_next):
+        cur = model(sample_tensor)
+        cur = cur[0].numpy() / rnd_power
+        cur = tf.random.categorical(cur, num_samples=1)[-1, 0].numpy()
+        predicted.append(cur)
         sample_tensor = predicted[-99:]
-        sample_tensor = tf.expand_dims([pred], 0)
+        sample_tensor = tf.expand_dims([cur], 0)
         sample_tensor = tf.repeat(sample_tensor, batch_size, axis=0)
-    
-    pred_seq = [vocabulary[i] for i in predicted]
-    generated = ''.join(pred_seq)
+    res = [vocabulary[i] for i in predicted]
+    generated = ''.join(res)
     return generated
 ```
 
@@ -104,8 +125,8 @@ def predict_next(sample, model, tokenizer, vocabulary, n_next, temperature, batc
 print(predict_next(
     sample='б',
     model=model,
-    tokenizer=word_index,
-    vocabulary=index_word,
+    tokenizer=sym_to_idx,
+    vocabulary=idx_to_sym,
     n_next=200,
     temperature=0.6,
     batch_size=BATCH_SIZE
@@ -125,8 +146,8 @@ print(predict_next(
 print(predict_next(
     sample='1',
     model=model,
-    tokenizer=word_index,
-    vocabulary=index_word,
+    tokenizer=sym_to_idx,
+    vocabulary=idx_to_sym,
     n_next=100,
     temperature=0.2,
     batch_size=BATCH_SIZE
