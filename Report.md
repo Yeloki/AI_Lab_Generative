@@ -100,6 +100,19 @@ def predict_next(sample, model, tokenizer, vocabulary, n_next, temperature, batc
 
 **Пример 1 (с температурой 0.6)**
 
+```python
+print(predict_next(
+    sample='б',
+    model=model,
+    tokenizer=word_index,
+    vocabulary=index_word,
+    n_next=200,
+    temperature=0.6,
+    batch_size=BATCH_SIZE
+))
+```
+На выходе получаем следующее:
+
 ```plaintext
 бом и селениями своими, ибо время согрешающего совершенного скота, о котором сказано: верен Бог их и умер, и освящающих нас, что делается всё, что значит им слово Божие, которое я имею тельцов и не дол
 ```
@@ -107,6 +120,19 @@ def predict_next(sample, model, tokenizer, vocabulary, n_next, temperature, batc
 Этот пример показывает, что при температуре 0.6 текст получается разнообразным, но временами нарушается логика предложений. Модель способна генерировать осмысленные фразы, однако часть текста может не иметь связного смысла.
 
 **Пример 2 (с температурой 0.2)**
+
+```python
+print(predict_next(
+    sample='1',
+    model=model,
+    tokenizer=word_index,
+    vocabulary=index_word,
+    n_next=100,
+    temperature=0.2,
+    batch_size=BATCH_SIZE
+))
+```
+На выходе получаем следующее:
 
 ```plaintext
 1гая в сердцах своих и принятие в слове своём и сказали ему: вот, я возлюбленному своему и служению в
